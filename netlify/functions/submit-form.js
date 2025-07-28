@@ -101,23 +101,25 @@ exports.handler = async (event) => {
         };
       }
       // Log successful Talentpool signup to SheetDB
-      await fetch(process.env.SHEETDB_API, {
+      fetch(process.env.SHEETDB_API, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          data: [
-            {
-              full_name,
-              email,
-              phone,
-              company,
-              size,
-              ...utmParams,
-              source: "Talentpool",
-              timestamp: new Date().toISOString(),
-            },
-          ],
+          full_name: full_name,
+          business_email: email,
+          phone: phone,
+          company: company,
+          size: size,
+          utm_source: "Website Form",
+          utm_campaign: utmParams.utm_campaign,
+          utm_term: utmParams.utm_term,
+          utm_medium: utmParams.utm_medium,
+          utm_content: utmParams.utm_content,
         }),
+      }).catch((error) => {
+        console.error("Error adding data:", error);
       });
 
       return {
@@ -196,24 +198,26 @@ exports.handler = async (event) => {
     });
 
     // Log successful Talentpool signup to SheetDB
-    await fetch(process.env.SHEETDB_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        data: [
-          {
-            full_name,
-            email,
-            phone,
-            company,
-            size,
-            ...utmParams,
-            source: "Talentpool",
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      }),
-    });
+    fetch(process.env.SHEETDB_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: full_name,
+          business_email: email,
+          phone: phone,
+          company: company,
+          size: size,
+          utm_source: utmParams.utm_source,
+          utm_campaign: utmParams.utm_campaign,
+          utm_term: utmParams.utm_term,
+          utm_medium: utmParams.utm_medium,
+          utm_content: utmParams.utm_content,
+        }),
+      }).catch((error) => {
+        console.error("Error adding data:", error);
+      });
 
     // 5. Done
     return {
