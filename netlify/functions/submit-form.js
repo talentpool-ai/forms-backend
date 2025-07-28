@@ -85,7 +85,6 @@ exports.handler = async (event) => {
           },
           body: JSON.stringify({
             error: "You are an existing user, please consider logging in!",
-            redirect: "/email-verification",
           }),
         };
       }
@@ -98,7 +97,6 @@ exports.handler = async (event) => {
           },
           body: JSON.stringify({
             error: "Your organization is already registered, contact your administrator!",
-            redirect: "/email-verification",
           }),
         };
       }
