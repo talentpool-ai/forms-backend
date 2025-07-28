@@ -100,6 +100,25 @@ exports.handler = async (event) => {
           }),
         };
       }
+      // Log successful Talentpool signup to SheetDB
+      await fetch(process.env.SHEETDB_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: [
+            {
+              full_name,
+              email,
+              phone,
+              company,
+              size,
+              ...utmParams,
+              source: "Talentpool",
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        }),
+      });
 
       return {
         statusCode: 200,
@@ -176,6 +195,26 @@ exports.handler = async (event) => {
       }),
     });
 
+    // Log successful Talentpool signup to SheetDB
+    await fetch(process.env.SHEETDB_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        data: [
+          {
+            full_name,
+            email,
+            phone,
+            company,
+            size,
+            ...utmParams,
+            source: "Talentpool",
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }),
+    });
+
     // 5. Done
     return {
       statusCode: 200,
@@ -195,4 +234,5 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: "Something went wrong" }),
     };
   }
+  
 };
