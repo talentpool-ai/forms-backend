@@ -101,7 +101,7 @@ exports.handler = async (event) => {
         };
       }
       // Log successful Talentpool signup to SheetDB
-      fetch(process.env.SHEETDB_API, {
+      await fetch(process.env.SHEETDB_API, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -198,7 +198,7 @@ exports.handler = async (event) => {
     });
 
     // Log successful Talentpool signup to SheetDB
-    fetch(process.env.SHEETDB_API, {
+    await fetch(process.env.SHEETDB_API, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
