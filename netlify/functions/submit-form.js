@@ -68,6 +68,7 @@ exports.handler = async (event) => {
       });
 
       const raw = await talentpoolResp.text();
+      console.log(raw);
       let msg;
       try {
         const parsed = JSON.parse(raw);
