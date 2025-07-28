@@ -46,6 +46,7 @@ exports.handler = async (event) => {
 
     // 2. Handle Talentpool API for < 5 size
     if (size === "lessthan5") {
+      console.log("Talentpool API called");
       const talentpoolResp = await fetch("https://demo.thetalentpool.co.in/onboard/tenant/signup", {
         method: "POST",
         headers: {
@@ -88,6 +89,7 @@ exports.handler = async (event) => {
 
     // 3. Handle Pipedrive: Org + Person + Lead
     const apiToken = process.env.PIPEDRIVE_API_TOKEN;
+    console.log("Pipedrive API called");
 
     // Get or create org
     let orgId = null;
