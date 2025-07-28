@@ -1,11 +1,13 @@
 const fetch = require("node-fetch");
 
 // Allow only your frontend origin
-const allowedOrigin = "https://dev.thetalentpool.ai";
+const allowedOrigins = [
+  "https://dev.thetalentpool.ai",
+  "https://www.thetalentpool.ai",
+];
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
-    // Handle preflight
     return {
       statusCode: 200,
       headers: {
@@ -45,63 +47,66 @@ exports.handler = async (event) => {
 
     if (size === "lessthan5") {
       console.log("Talentpool API called");
+
       const talentpoolResp = await fetch("https://demo.thetalentpool.co.in/onboard/tenant/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: process.env.TALENTPOOL_AUTH_HEADER,
-      },
-      body: JSON.stringify({ businessEmail: email }),
-    });
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: process.env.TALENTPOOL_AUTH_HEADER,
+        },
+        body: JSON.stringify({ businessEmail: email }),
+      });
 
-    const raw = await talentpoolResp.text();
-    
-    let msg;
-    try {
-      const parsed = JSON.parse(raw);
-      msg = parsed?.message || raw;
-    } catch (err) {
-      msg = raw;
-    }
-    
-    if (msg.includes("Duplicate business email")) {
+      const raw = await talentpoolResp.text();
+      let msg;
+      try {
+        const parsed = JSON.parse(raw);
+        msg = parsed?.message || raw;
+      } catch (err) {
+        msg = raw;
+      }
+
+      if (msg.includes("Duplicate business email")) {
+        return {
+          statusCode: 200,
+          headers: {
+            "Access-Control-Allow-Origin": allowedOrigin,
+          },
+          body: JSON.stringify({
+            error: "You are an existing user, please consider logging in!",
+            redirect: "/email-verification",
+          }),
+        };
+      }
+
+      if (msg.includes("Duplicate tenant code")) {
+        return {
+          statusCode: 200,
+          headers: {
+            "Access-Control-Allow-Origin": allowedOrigin,
+          },
+          body: JSON.stringify({
+            error: "Your organization is already registered, contact your administrator!",
+            redirect: "/email-verification",
+          }),
+        };
+      }
+
+      // Success - new tenant
       return {
         statusCode: 200,
         headers: {
           "Access-Control-Allow-Origin": allowedOrigin,
         },
-        body: JSON.stringify({
-          error: "You are an existing user, please consider logging in!",
-          redirect: "/email-verification",
-        }),
+        body: JSON.stringify({ redirect: "/email-verification" }),
       };
     }
-    
-    if (msg.includes("Duplicate tenant code")) {
-      return {
-        statusCode: 200,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-        },
-        body: JSON.stringify({
-          error: "Your organization is already registered, contact your administrator!",
-          redirect: "/email-verification",
-        }),
-      };
-    }
-    
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-      },
-      body: JSON.stringify({ redirect: "/email-verification" }),
-    };
 
-    // Pipedrive
+    // 🔁 Pipedrive Flow
     const apiToken = process.env.PIPEDRIVE_API_TOKEN;
     console.log("Pipedrive API called");
 
+    // 1. Get or create organization
     let orgId = null;
     const searchOrg = await fetch(`https://talentpool.pipedrive.com/v1/organizations/search?term=${encodeURIComponent(company)}&api_token=${apiToken}`);
     const orgRes = await searchOrg.json();
@@ -117,6 +122,7 @@ exports.handler = async (event) => {
       orgId = orgData?.data?.id;
     }
 
+    // 2. Get or create person
     let personId = null;
     const searchPerson = await fetch(`https://talentpool.pipedrive.com/v1/persons/search?term=${encodeURIComponent(email)}&api_token=${apiToken}`);
     const personRes = await searchPerson.json();
@@ -136,6 +142,7 @@ exports.handler = async (event) => {
       personId = personData?.data?.id;
     }
 
+    // 3. Create lead
     await fetch(`https://talentpool.pipedrive.com/v1/leads?api_token=${apiToken}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -146,6 +153,7 @@ exports.handler = async (event) => {
       }),
     });
 
+    // 4. Send EmailJS
     await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -160,6 +168,7 @@ exports.handler = async (event) => {
       }),
     });
 
+    // 5. Done
     return {
       statusCode: 200,
       headers: {
