@@ -1,11 +1,36 @@
 const fetch = require("node-fetch");
 
+// Allow only your frontend origin
+const allowedOrigin = "https://dev.thetalentpool.ai";
+
 exports.handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    // Handle preflight
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": allowedOrigin,
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      body: "OK",
+    };
+  }
+
+  // Handle POST
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
+    return {
+      statusCode: 405,
+      headers: {
+        "Access-Control-Allow-Origin": allowedOrigin,
+      },
+      body: "Method Not Allowed",
+    };
   }
 
   try {
+    const data = JSON.parse(event.body);
+
     const data = JSON.parse(event.body);
     const { full_name, phone, email, company, size, utmParams } = data;
 
@@ -54,6 +79,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: 200,
+        headers: {
+        "Access-Control-Allow-Origin": allowedOrigin,
+      },
         body: JSON.stringify({ redirect: "/email-verification" }),
       };
     }
@@ -126,14 +154,18 @@ exports.handler = async (event) => {
     // 5. Done
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": allowedOrigin,
+      },
       body: JSON.stringify({ redirect: "/thank-you-2/" }),
     };
-
-  } catch (error) {
-    console.error("Form submission error:", error);
+  } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Something went wrong. Please try again." }),
+      headers: {
+        "Access-Control-Allow-Origin": allowedOrigin,
+      },
+      body: JSON.stringify({ error: "Something went wrong" }),
     };
   }
 };
