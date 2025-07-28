@@ -46,50 +46,57 @@ exports.handler = async (event) => {
     if (size === "lessthan5") {
       console.log("Talentpool API called");
       const talentpoolResp = await fetch("https://demo.thetalentpool.co.in/onboard/tenant/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: process.env.TALENTPOOL_AUTH_HEADER,
-        },
-        body: JSON.stringify({ businessEmail: email }),
-      });
-      const respData = await talentpoolResp.json();
-      const msg = typeof respData === "string" ? respData : respData.message;
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: process.env.TALENTPOOL_AUTH_HEADER,
+      },
+      body: JSON.stringify({ businessEmail: email }),
+    });
 
-      if (msg === "Duplicate business email found") {
-        return {
-          statusCode: 200,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-          },
-          body: JSON.stringify({
-            error: "You are an existing user, please consider logging in!",
-            redirect: "/email-verification",
-          }),
-        };
-      }
-
-      if (msg === "Duplicate tenant code found") {
-        return {
-          statusCode: 200,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-          },
-          body: JSON.stringify({
-            error: "Your organization is already registered, contact your administrator!",
-            redirect: "/email-verification",
-          }),
-        };
-      }
-
+    const raw = await talentpoolResp.text();
+    
+    let msg;
+    try {
+      const parsed = JSON.parse(raw);
+      msg = parsed?.message || raw;
+    } catch (err) {
+      msg = raw;
+    }
+    
+    if (msg.includes("Duplicate business email")) {
       return {
         statusCode: 200,
         headers: {
           "Access-Control-Allow-Origin": allowedOrigin,
         },
-        body: JSON.stringify({ redirect: "/email-verification" }),
+        body: JSON.stringify({
+          error: "You are an existing user, please consider logging in!",
+          redirect: "/email-verification",
+        }),
       };
     }
+    
+    if (msg.includes("Duplicate tenant code")) {
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": allowedOrigin,
+        },
+        body: JSON.stringify({
+          error: "Your organization is already registered, contact your administrator!",
+          redirect: "/email-verification",
+        }),
+      };
+    }
+    
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": allowedOrigin,
+      },
+      body: JSON.stringify({ redirect: "/email-verification" }),
+    };
 
     // Pipedrive
     const apiToken = process.env.PIPEDRIVE_API_TOKEN;
