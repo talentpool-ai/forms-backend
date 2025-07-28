@@ -12,6 +12,11 @@ exports.handler = async (event) => {
     ? requestOrigin
     : "null";
 
+  console.log(corsOrigin);
+  if (corsOrigin === "null") {
+  console.warn("Blocked origin:", requestOrigin);
+}
+
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
