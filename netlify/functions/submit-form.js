@@ -43,18 +43,6 @@ exports.handler = async (event) => {
     const data = JSON.parse(event.body);
     const { full_name, phone, email, company, size, utmParams } = data;
 
-    const personalDomains = ["gmail", "yahoo", "hotmail", "aol", "mail", "rediff", "facebook", "yandex", "gmx"];
-    const emailDomain = email.split('@')[1]?.split('.')[0]?.toLowerCase();
-    if (personalDomains.includes(emailDomain)) {
-      return {
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Origin": corsOrigin,
-        },
-        body: JSON.stringify({ error: "Please enter a corporate email address." }),
-      };
-    }
-
     if (size === "lessthan5") {
       console.log("Talentpool API called");
 
