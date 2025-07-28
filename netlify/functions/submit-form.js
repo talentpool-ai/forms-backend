@@ -1,6 +1,6 @@
 const fetch = require("node-fetch");
 
-// Allowed frontend domains
+// ✅ Allowed frontend domains
 const allowedOrigins = [
   "https://dev.thetalentpool.ai",
   "https://www.thetalentpool.ai",
@@ -117,3 +117,78 @@ exports.handler = async (event) => {
     if (orgRes?.data?.items?.length > 0) {
       orgId = orgRes.data.items[0].item.id;
     } else {
+      const createOrg = await fetch(`https://talentpool.pipedrive.com/v1/organizations?api_token=${apiToken}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: company }),
+      });
+      const orgData = await createOrg.json();
+      orgId = orgData?.data?.id;
+    }
+
+    // 2. Get or create person
+    let personId = null;
+    const searchPerson = await fetch(`https://talentpool.pipedrive.com/v1/persons/search?term=${encodeURIComponent(email)}&api_token=${apiToken}`);
+    const personRes = await searchPerson.json();
+    if (personRes?.data?.items?.length > 0) {
+      personId = personRes.data.items[0].item.id;
+    } else {
+      const createPerson = await fetch(`https://talentpool.pipedrive.com/v1/persons?api_token=${apiToken}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: full_name,
+          email: [{ value: email, primary: true, label: "work" }],
+          phone: [{ value: phone, primary: true, label: "work" }],
+        }),
+      });
+      const personData = await createPerson.json();
+      personId = personData?.data?.id;
+    }
+
+    // 3. Create lead
+    await fetch(`https://talentpool.pipedrive.com/v1/leads?api_token=${apiToken}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: company,
+        person_id: personId,
+        organization_id: orgId,
+      }),
+    });
+
+    // 4. Send EmailJS
+    await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: process.env.EMAILJS_SERVICE_ID,
+        template_id: process.env.EMAILJS_TEMPLATE_ID,
+        user_id: process.env.EMAILJS_PUBLIC_KEY,
+        template_params: {
+          email,
+          phone,
+        },
+      }),
+    });
+
+    // 5. Done
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": corsOrigin,
+      },
+      body: JSON.stringify({ redirect: "/thank-you-2/" }),
+    };
+
+  } catch (err) {
+    console.error("Error in Netlify Function:", err);
+    return {
+      statusCode: 500,
+      headers: {
+        "Access-Control-Allow-Origin": corsOrigin,
+      },
+      body: JSON.stringify({ error: "Something went wrong" }),
+    };
+  }
+};
