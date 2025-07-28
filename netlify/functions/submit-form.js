@@ -1,7 +1,7 @@
 const fetch = require("node-fetch");
 
 // Allow only your frontend origin
-const allowedOrigins = [
+const allowedOrigin = [
   "https://dev.thetalentpool.ai",
   "https://www.thetalentpool.ai",
 ];
