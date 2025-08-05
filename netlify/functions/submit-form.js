@@ -115,7 +115,7 @@ exports.handler = async (event) => {
         headers: {
           "Access-Control-Allow-Origin": corsOrigin,
         },
-        body: JSON.stringify({ redirect: "/email-verification" }),
+        body: JSON.stringify({ redirect: "www.thetalentpool.ai/email-verification" }),
       };
     }
 
@@ -213,7 +213,7 @@ exports.handler = async (event) => {
       headers: {
         "Access-Control-Allow-Origin": corsOrigin,
       },
-      body: JSON.stringify({ redirect: "/thank-you-2/" }),
+      body: JSON.stringify({ redirect: "www.thetalentpool.ai/thank-you-2/" }),
     };
 
   } catch (err) {
