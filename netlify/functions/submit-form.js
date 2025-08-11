@@ -4,6 +4,7 @@ const fetch = require("node-fetch");
 const allowedOrigins = [
   "https://dev.thetalentpool.ai",
   "https://www.thetalentpool.ai",
+  "https://thetalentpool.ai",
 ];
 
 exports.handler = async (event) => {
