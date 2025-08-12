@@ -101,7 +101,7 @@ exports.handler = async (event) => {
           phone: phone,
           company: company,
           size: size,
-          utm_source: "Website Form",
+          utm_source: utmParams.utm_source,
           utm_campaign: utmParams.utm_campaign,
           utm_term: utmParams.utm_term,
           utm_medium: utmParams.utm_medium,
