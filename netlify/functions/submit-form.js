@@ -108,6 +108,8 @@ exports.handler = async (event) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          date: date, // NEW
+          time: time, // NEW
           full_name: full_name,
           business_email: email,
           phone: phone,
@@ -118,8 +120,6 @@ exports.handler = async (event) => {
           utm_term: utmParams.utm_term,
           utm_medium: utmParams.utm_medium,
           utm_content: utmParams.utm_content,
-          date, // NEW
-          time, // NEW
         }),
       }).catch((error) => {
         console.error("Error adding data:", error);
@@ -208,6 +208,8 @@ exports.handler = async (event) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          date: date, // NEW
+          time: time, // NEW
           full_name: full_name,
           business_email: email,
           phone: phone,
@@ -218,8 +220,6 @@ exports.handler = async (event) => {
           utm_term: utmParams.utm_term,
           utm_medium: utmParams.utm_medium,
           utm_content: utmParams.utm_content,
-          date, // NEW
-          time, // NEW
         }),
       }).catch((error) => {
         console.error("Error adding data:", error);
