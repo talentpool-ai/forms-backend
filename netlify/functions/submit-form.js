@@ -7,6 +7,17 @@ const allowedOrigins = [
   "https://thetalentpool.ai",
 ];
 
+// Helper: current date & time in IST as separate columns
+function getISTDateTime() {
+  const now = new Date();
+  const date = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+  const time = now.toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour12: false, // HH:MM:SS
+  });
+  return { date, time };
+}
+
 exports.handler = async (event) => {
   const requestOrigin = event.headers.origin;
   const corsOrigin = allowedOrigins.includes(requestOrigin)
@@ -90,6 +101,7 @@ exports.handler = async (event) => {
         };
       }
       // Log successful Talentpool signup to SheetDB
+      const { date, time } = getISTDateTime();
       await fetch(process.env.SHEETDB_API, {
         method: "POST",
         headers: {
@@ -106,6 +118,8 @@ exports.handler = async (event) => {
           utm_term: utmParams.utm_term,
           utm_medium: utmParams.utm_medium,
           utm_content: utmParams.utm_content,
+          date, // NEW
+          time, // NEW
         }),
       }).catch((error) => {
         console.error("Error adding data:", error);
@@ -187,6 +201,7 @@ exports.handler = async (event) => {
     });
 
     // Log successful Talentpool signup to SheetDB
+    const { date, time } = getISTDateTime();
     await fetch(process.env.SHEETDB_API, {
         method: "POST",
         headers: {
@@ -203,6 +218,8 @@ exports.handler = async (event) => {
           utm_term: utmParams.utm_term,
           utm_medium: utmParams.utm_medium,
           utm_content: utmParams.utm_content,
+          date, // NEW
+          time, // NEW
         }),
       }).catch((error) => {
         console.error("Error adding data:", error);
