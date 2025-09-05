@@ -20,6 +20,9 @@ function getISTDateTime() {
 
 // Power Automate endpoint
 const FLOW_URL = process.env.POWER_AUTOMATE_FLOW_URL; // store your flow URL in Netlify env vars
+if (!FLOW_URL) {
+  console.error("❌ Missing POWER_AUTOMATE_FLOW_URL");
+}
 
 async function forwardToPowerAutomate(submission) {
   const { date, time } = getISTDateTime();
