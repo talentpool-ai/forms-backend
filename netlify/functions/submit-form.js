@@ -18,6 +18,37 @@ function getISTDateTime() {
   return { date, time };
 }
 
+// Power Automate endpoint
+const FLOW_URL = process.env.POWER_AUTOMATE_FLOW_URL; // store your flow URL in Netlify env vars
+
+async function forwardToPowerAutomate(submission) {
+  const { date, time } = getISTDateTime();
+  const payload = {
+    full_name: submission.full_name,
+    email: submission.email,
+    phone: submission.phone,
+    company: submission.company,
+    size: submission.size,
+    whitepaper_title: submission.whitepaper_title || "",
+    utm: submission.utmParams || {},
+    date,
+    time
+  };
+
+  const res = await fetch(FLOW_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`❌ Flow failed: ${res.status} ${text}`);
+    throw new Error(`Flow failed: ${res.status}`);
+  }
+  console.log("✅ Logged to Power Automate successfully");
+}
+
 exports.handler = async (event) => {
   const requestOrigin = event.headers.origin;
   const corsOrigin = allowedOrigins.includes(requestOrigin)
@@ -100,29 +131,16 @@ exports.handler = async (event) => {
           }),
         };
       }
-      // Log successful Talentpool signup to SheetDB
-      const { date, time } = getISTDateTime();
-      await fetch(process.env.SHEETDB_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          date: date, // NEW
-          time: time, // NEW
-          full_name: full_name,
-          business_email: email,
-          phone: phone,
-          company: company,
-          size: size,
-          utm_source: utmParams.utm_source,
-          utm_campaign: utmParams.utm_campaign,
-          utm_term: utmParams.utm_term,
-          utm_medium: utmParams.utm_medium,
-          utm_content: utmParams.utm_content,
-        }),
-      }).catch((error) => {
-        console.error("Error adding data:", error);
+      
+      // Log successful signup to Microsoft Excel via Power Automate
+      await forwardToPowerAutomate({
+        full_name,
+        email,
+        phone,
+        company,
+        size,
+        whitepaper_title: "", // not used here
+        utmParams
       });
 
       return {
@@ -200,29 +218,15 @@ exports.handler = async (event) => {
       }),
     });
 
-    // Log successful Talentpool signup to SheetDB
-    const { date, time } = getISTDateTime();
-    await fetch(process.env.SHEETDB_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          date: date, // NEW
-          time: time, // NEW
-          full_name: full_name,
-          business_email: email,
-          phone: phone,
-          company: company,
-          size: size,
-          utm_source: utmParams.utm_source,
-          utm_campaign: utmParams.utm_campaign,
-          utm_term: utmParams.utm_term,
-          utm_medium: utmParams.utm_medium,
-          utm_content: utmParams.utm_content,
-        }),
-      }).catch((error) => {
-        console.error("Error adding data:", error);
+    // Log successful signup to Microsoft Excel via Power Automate
+      await forwardToPowerAutomate({
+        full_name,
+        email,
+        phone,
+        company,
+        size,
+        whitepaper_title: "", // not used here
+        utmParams
       });
 
     // 5. Done
