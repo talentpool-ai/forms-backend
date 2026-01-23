@@ -5,6 +5,7 @@ const allowedOrigins = [
   "https://dev.thetalentpool.ai",
   "https://www.thetalentpool.ai",
   "https://thetalentpool.ai",
+  "http://dev-ui.thetalentpool.ai",
 ];
 
 // Helper: current date & time in IST as separate columns
