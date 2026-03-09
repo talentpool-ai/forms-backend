@@ -33,6 +33,7 @@ async function forwardToPowerAutomate(submission) {
     phone: submission.phone,
     company: submission.company,
     size: submission.size,
+    timezone: submission.timezone,
     whitepaper_title: submission.whitepaper_title || "",
     utm: submission.utmParams || {},
     date,
@@ -99,7 +100,7 @@ exports.handler = async (event) => {
           "Content-Type": "application/json",
           Authorization: process.env.TALENTPOOL_AUTH_HEADER,
         },
-        body: JSON.stringify({ businessEmail: email }),
+        body: JSON.stringify({ businessEmail: email, timezone: timezone }),
       });
 
       const raw = await talentpoolResp.text();
