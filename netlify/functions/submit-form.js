@@ -99,7 +99,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
         Authorization: process.env.TALENTPOOL_AUTH_HEADER,
       },
-      body: JSON.stringify({ businessEmail: email, timezone, }),
+      body: JSON.stringify({ businessEmail: email, timeZone: timezone}),
     });
 
     const raw = await talentpoolResp.text();
