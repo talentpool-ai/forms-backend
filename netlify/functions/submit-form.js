@@ -90,28 +90,29 @@ exports.handler = async (event) => {
   try {
     const data = JSON.parse(event.body);
     const { full_name, phone, email, company, size, utmParams } = data;
+    
+    console.log("Talentpool API called");
 
+    const talentpoolResp = await fetch("https://demo.thetalentpool.co.in/onboard/tenant/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: process.env.TALENTPOOL_AUTH_HEADER,
+      },
+      body: JSON.stringify({ businessEmail: email, timezone, }),
+    });
+
+    const raw = await talentpoolResp.text();
+    console.log(raw);
+    let msg;
+    try {
+      const parsed = JSON.parse(raw);
+      msg = parsed?.message || raw;
+    } catch (err) {
+      msg = raw;
+    }
+    
     if (size === "lessthan5") {
-      console.log("Talentpool API called");
-
-      const talentpoolResp = await fetch("https://demo.thetalentpool.co.in/onboard/tenant/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: process.env.TALENTPOOL_AUTH_HEADER,
-        },
-        body: JSON.stringify({ businessEmail: email }),
-      });
-
-      const raw = await talentpoolResp.text();
-      console.log(raw);
-      let msg;
-      try {
-        const parsed = JSON.parse(raw);
-        msg = parsed?.message || raw;
-      } catch (err) {
-        msg = raw;
-      }
 
       if (msg.includes("Duplicate business email")) {
         return {
