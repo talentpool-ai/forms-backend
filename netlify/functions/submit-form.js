@@ -89,7 +89,7 @@ exports.handler = async (event) => {
 
   try {
     const data = JSON.parse(event.body);
-    const { full_name, phone, email, company, size, utmParams } = data;
+    const { full_name, phone, email, company, size, timezone, utmParams } = data;
     
     console.log("Talentpool API called");
 
