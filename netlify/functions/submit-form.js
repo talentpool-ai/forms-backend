@@ -19,6 +19,28 @@ function getISTDateTime() {
   return { date, time };
 }
 
+// Helper: build redirect URL with UTM params
+function buildRedirectWithUTM(path, utmParams = {}) {
+  const params = new URLSearchParams();
+
+  if (utmParams && typeof utmParams === "object") {
+    Object.entries(utmParams).forEach(([key, value]) => {
+      if (
+        key &&
+        key.startsWith("utm_") &&
+        value !== undefined &&
+        value !== null &&
+        String(value).trim() !== ""
+      ) {
+        params.set(key, String(value));
+      }
+    });
+  }
+
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+}
+
 // Power Automate endpoint
 const FLOW_URL = process.env.POWER_AUTOMATE_FLOW_URL; // store your flow URL in Netlify env vars
 if (!FLOW_URL) {
@@ -51,6 +73,7 @@ async function forwardToPowerAutomate(submission) {
     console.error(`❌ Flow failed: ${res.status} ${text}`);
     throw new Error(`Flow failed: ${res.status}`);
   }
+
   console.log("✅ Logged to Power Automate successfully");
 }
 
@@ -61,9 +84,10 @@ exports.handler = async (event) => {
     : "null";
 
   console.log(corsOrigin);
+
   if (corsOrigin === "null") {
-  console.warn("Blocked origin:", requestOrigin);
-}
+    console.warn("Blocked origin:", requestOrigin);
+  }
 
   if (event.httpMethod === "OPTIONS") {
     return {
@@ -89,8 +113,16 @@ exports.handler = async (event) => {
 
   try {
     const data = JSON.parse(event.body);
-    const { full_name, phone, email, company, size, timezone, utmParams } = data;
-    
+    const {
+      full_name,
+      phone,
+      email,
+      company,
+      size,
+      timezone,
+      utmParams
+    } = data;
+
     console.log("Talentpool API called");
 
     const talentpoolResp = await fetch("https://demo.thetalentpool.co.in/onboard/tenant/signup", {
@@ -99,11 +131,15 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
         Authorization: process.env.TALENTPOOL_AUTH_HEADER,
       },
-      body: JSON.stringify({ businessEmail: email, timeZone: timezone}),
+      body: JSON.stringify({
+        businessEmail: email,
+        timeZone: timezone
+      }),
     });
 
     const raw = await talentpoolResp.text();
     console.log(raw);
+
     let msg;
     try {
       const parsed = JSON.parse(raw);
@@ -111,9 +147,8 @@ exports.handler = async (event) => {
     } catch (err) {
       msg = raw;
     }
-    
-    if (size === "lessthan5") {
 
+    if (size === "lessthan5") {
       if (msg.includes("Duplicate business email")) {
         return {
           statusCode: 200,
@@ -137,15 +172,15 @@ exports.handler = async (event) => {
           }),
         };
       }
-      
-      // Log successful signup to Microsoft Excel via Power Automate
+
       await forwardToPowerAutomate({
         full_name,
         email,
         phone,
         company,
         size,
-        whitepaper_title: "", // not used here
+        timezone,
+        whitepaper_title: "",
         utmParams
       });
 
@@ -154,7 +189,9 @@ exports.handler = async (event) => {
         headers: {
           "Access-Control-Allow-Origin": corsOrigin,
         },
-        body: JSON.stringify({ redirect: "/email-verification" }),
+        body: JSON.stringify({
+          redirect: buildRedirectWithUTM("/email-verification", utmParams),
+        }),
       };
     }
 
@@ -164,36 +201,48 @@ exports.handler = async (event) => {
 
     // 1. Get or create organization
     let orgId = null;
-    const searchOrg = await fetch(`https://talentpool.pipedrive.com/v1/organizations/search?term=${encodeURIComponent(company)}&api_token=${apiToken}`);
+    const searchOrg = await fetch(
+      `https://talentpool.pipedrive.com/v1/organizations/search?term=${encodeURIComponent(company)}&api_token=${apiToken}`
+    );
     const orgRes = await searchOrg.json();
+
     if (orgRes?.data?.items?.length > 0) {
       orgId = orgRes.data.items[0].item.id;
     } else {
-      const createOrg = await fetch(`https://talentpool.pipedrive.com/v1/organizations?api_token=${apiToken}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: company }),
-      });
+      const createOrg = await fetch(
+        `https://talentpool.pipedrive.com/v1/organizations?api_token=${apiToken}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: company }),
+        }
+      );
       const orgData = await createOrg.json();
       orgId = orgData?.data?.id;
     }
 
     // 2. Get or create person
     let personId = null;
-    const searchPerson = await fetch(`https://talentpool.pipedrive.com/v1/persons/search?term=${encodeURIComponent(email)}&api_token=${apiToken}`);
+    const searchPerson = await fetch(
+      `https://talentpool.pipedrive.com/v1/persons/search?term=${encodeURIComponent(email)}&api_token=${apiToken}`
+    );
     const personRes = await searchPerson.json();
+
     if (personRes?.data?.items?.length > 0) {
       personId = personRes.data.items[0].item.id;
     } else {
-      const createPerson = await fetch(`https://talentpool.pipedrive.com/v1/persons?api_token=${apiToken}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: full_name,
-          email: [{ value: email, primary: true, label: "work" }],
-          phone: [{ value: phone, primary: true, label: "work" }],
-        }),
-      });
+      const createPerson = await fetch(
+        `https://talentpool.pipedrive.com/v1/persons?api_token=${apiToken}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: full_name,
+            email: [{ value: email, primary: true, label: "work" }],
+            phone: [{ value: phone, primary: true, label: "work" }],
+          }),
+        }
+      );
       const personData = await createPerson.json();
       personId = personData?.data?.id;
     }
@@ -224,26 +273,26 @@ exports.handler = async (event) => {
       }),
     });
 
-    // Log successful signup to Microsoft Excel via Power Automate
-      await forwardToPowerAutomate({
-        full_name,
-        email,
-        phone,
-        company,
-        size,
-        whitepaper_title: "", // not used here
-        utmParams
-      });
+    await forwardToPowerAutomate({
+      full_name,
+      email,
+      phone,
+      company,
+      size,
+      timezone,
+      whitepaper_title: "",
+      utmParams
+    });
 
-    // 5. Done
     return {
       statusCode: 200,
       headers: {
         "Access-Control-Allow-Origin": corsOrigin,
       },
-      body: JSON.stringify({ redirect: "/thank-you-2/" }),
+      body: JSON.stringify({
+        redirect: buildRedirectWithUTM("/thank-you-2/", utmParams),
+      }),
     };
-
   } catch (err) {
     console.error("Error in Netlify Function:", err);
     return {
@@ -254,5 +303,4 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: "Something went wrong" }),
     };
   }
-  
 };
