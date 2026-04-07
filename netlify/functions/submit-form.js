@@ -190,7 +190,7 @@ exports.handler = async (event) => {
           "Access-Control-Allow-Origin": corsOrigin,
         },
         body: JSON.stringify({
-          redirect: buildRedirectWithUTM("/email-verification", utmParams),
+          redirect: buildRedirectWithUTM("/email-verification/", utmParams),
         }),
       };
     }
