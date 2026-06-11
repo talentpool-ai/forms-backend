@@ -1,4 +1,6 @@
 const fetch = require("node-fetch");
+// ✅ ADDED: PostHog SDK import
+const { PostHog } = require('posthog-node'); // ✅ ADDED
 
 // ✅ Allowed frontend domains
 const allowedOrigins = [
@@ -7,6 +9,18 @@ const allowedOrigins = [
   "https://thetalentpool.ai",
   "http://dev-ui.thetalentpool.ai",
 ];
+
+// ✅ ADDED: Initialize PostHog (requires POSTHOG_API_KEY env var)
+const posthog = new PostHog(process.env.POSTHOG_API_KEY, { // ✅ ADDED
+  host: 'https://app.posthog.com',                         // ✅ ADDED
+  flushAt: 1,                                              // ✅ ADDED
+  flushInterval: 0                                         // ✅ ADDED
+});                                                        // ✅ ADDED
+
+// ✅ ADDED: Handle PostHog errors
+posthog.on('error', (error) => {           // ✅ ADDED
+  console.error('PostHog error:', error);  // ✅ ADDED
+});                                        // ✅ ADDED
 
 // Helper: current date & time in IST as separate columns
 function getISTDateTime() {
@@ -184,6 +198,38 @@ exports.handler = async (event) => {
         utmParams
       });
 
+      // ✅ ADDED: PostHog tracking ONLY for small leads (size === "lessthan5")
+      await posthog.identify({                     // ✅ ADDED
+        distinctId: email,                         // ✅ ADDED
+        properties: {                              // ✅ ADDED
+          email: email,                            // ✅ ADDED
+          full_name: full_name,                    // ✅ ADDED
+          phone: phone,                            // ✅ ADDED
+          company: company,                        // ✅ ADDED
+          size: size,                              // ✅ ADDED
+          timezone: timezone,                      // ✅ ADDED
+          lead_source: utmParams?.utm_source || 'direct', // ✅ ADDED
+          lead_status: 'new',                      // ✅ ADDED
+          created_at: new Date().toISOString()     // ✅ ADDED
+        }                                          // ✅ ADDED
+      });                                          // ✅ ADDED
+
+      await posthog.capture({                      // ✅ ADDED
+        distinctId: email,                         // ✅ ADDED
+        event: 'lead_submitted',                   // ✅ ADDED
+        properties: {                              // ✅ ADDED
+          lead_id: `lead_${email}_${Date.now()}`,  // ✅ ADDED
+          form_name: 'main_lead_form',             // ✅ ADDED
+          size: size,                              // ✅ ADDED
+          company: company,                        // ✅ ADDED
+          utm_source: utmParams?.utm_source || null,   // ✅ ADDED
+          utm_medium: utmParams?.utm_medium || null,   // ✅ ADDED
+          utm_campaign: utmParams?.utm_campaign || null // ✅ ADDED
+        }                                          // ✅ ADDED
+      });                                          // ✅ ADDED
+
+      await posthog.flush();                       // ✅ ADDED
+
       return {
         statusCode: 200,
         headers: {
@@ -195,7 +241,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 🔁 Pipedrive Flow
+    // 🔁 Pipedrive Flow (no PostHog here)
     const apiToken = process.env.PIPEDRIVE_API_TOKEN;
     console.log("Pipedrive API called");
 
@@ -283,6 +329,8 @@ exports.handler = async (event) => {
       whitepaper_title: "",
       utmParams
     });
+
+    // ❌ No PostHog here for non-small leads
 
     return {
       statusCode: 200,
