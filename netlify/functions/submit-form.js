@@ -1,6 +1,5 @@
 const fetch = require("node-fetch");
-// ✅ ADDED: PostHog SDK import
-const { PostHog } = require('posthog-node'); // ✅ ADDED
+const { PostHog } = require('posthog-node');
 
 // ✅ Allowed frontend domains
 const allowedOrigins = [
@@ -10,17 +9,17 @@ const allowedOrigins = [
   "http://dev-ui.thetalentpool.ai",
 ];
 
-// ✅ ADDED: Initialize PostHog (requires POSTHOG_API_KEY env var)
-const posthog = new PostHog(process.env.POSTHOG_API_KEY, { // ✅ ADDED
-  host: 'https://app.posthog.com',                         // ✅ ADDED
-  flushAt: 1,                                              // ✅ ADDED
-  flushInterval: 0                                         // ✅ ADDED
-});                                                        // ✅ ADDED
+// Initialize PostHog (requires POSTHOG_API_KEY env var)
+// NOTE: US cloud project — ingestion host MUST be us.i.posthog.com to match the frontend.
+const posthog = new PostHog(process.env.POSTHOG_API_KEY, {
+  host: 'https://us.i.posthog.com',
+  flushAt: 1,
+  flushInterval: 0
+});
 
-// ✅ ADDED: Handle PostHog errors
-posthog.on('error', (error) => {           // ✅ ADDED
-  console.error('PostHog error:', error);  // ✅ ADDED
-});                                        // ✅ ADDED
+posthog.on('error', (error) => {
+  console.error('PostHog error:', error);
+});
 
 // Helper: current date & time in IST as separate columns
 function getISTDateTime() {
@@ -31,6 +30,12 @@ function getISTDateTime() {
     hour12: false, // HH:MM:SS
   });
   return { date, time };
+}
+
+// Helper: derive an organization name from the work email domain.
+// john@acme.com -> "acme.com". Used in place of the removed Company field.
+function getEmailDomain(email) {
+  return (email || "").split("@")[1]?.trim().toLowerCase() || "";
 }
 
 // Helper: build redirect URL with UTM params
@@ -67,7 +72,7 @@ async function forwardToPowerAutomate(submission) {
     full_name: submission.full_name,
     email: submission.email,
     phone: submission.phone,
-    company: submission.company,
+    hiring_type: submission.hiring_type,
     size: submission.size,
     timezone: submission.timezone,
     whitepaper_title: submission.whitepaper_title || "",
@@ -131,11 +136,14 @@ exports.handler = async (event) => {
       full_name,
       phone,
       email,
-      company,
+      hiring_type,
       size,
       timezone,
       utmParams
     } = data;
+
+    // Org identity now comes from the work email domain (Company field removed).
+    const emailDomain = getEmailDomain(email);
 
     console.log("Talentpool API called");
 
@@ -191,44 +199,46 @@ exports.handler = async (event) => {
         full_name,
         email,
         phone,
-        company,
+        hiring_type,
         size,
         timezone,
         whitepaper_title: "",
         utmParams
       });
 
-      // ✅ ADDED: PostHog tracking ONLY for small leads (size === "lessthan5")
-      await posthog.identify({                     // ✅ ADDED
-        distinctId: email,                         // ✅ ADDED
-        properties: {                              // ✅ ADDED
-          email: email,                            // ✅ ADDED
-          full_name: full_name,                    // ✅ ADDED
-          phone: phone,                            // ✅ ADDED
-          company: company,                        // ✅ ADDED
-          size: size,                              // ✅ ADDED
-          timezone: timezone,                      // ✅ ADDED
-          lead_source: utmParams?.utm_source || 'direct', // ✅ ADDED
-          lead_status: 'new',                      // ✅ ADDED
-          created_at: new Date().toISOString()     // ✅ ADDED
-        }                                          // ✅ ADDED
-      });                                          // ✅ ADDED
+      // PostHog tracking ONLY for small leads (size === "lessthan5")
+      await posthog.identify({
+        distinctId: email,
+        properties: {
+          email: email,
+          full_name: full_name,
+          phone: phone,
+          company: emailDomain,        // derived from email domain
+          hiring_type: hiring_type,
+          size: size,
+          timezone: timezone,
+          lead_source: utmParams?.utm_source || 'direct',
+          lead_status: 'new',
+          created_at: new Date().toISOString()
+        }
+      });
 
-      await posthog.capture({                      // ✅ ADDED
-        distinctId: email,                         // ✅ ADDED
-        event: 'lead_submitted',                   // ✅ ADDED
-        properties: {                              // ✅ ADDED
-          lead_id: `lead_${email}_${Date.now()}`,  // ✅ ADDED
-          form_name: 'main_lead_form',             // ✅ ADDED
-          size: size,                              // ✅ ADDED
-          company: company,                        // ✅ ADDED
-          utm_source: utmParams?.utm_source || null,   // ✅ ADDED
-          utm_medium: utmParams?.utm_medium || null,   // ✅ ADDED
-          utm_campaign: utmParams?.utm_campaign || null // ✅ ADDED
-        }                                          // ✅ ADDED
-      });                                          // ✅ ADDED
+      await posthog.capture({
+        distinctId: email,
+        event: 'lead_submitted',
+        properties: {
+          lead_id: `lead_${email}_${Date.now()}`,
+          form_name: 'main_lead_form',
+          size: size,
+          company: emailDomain,        // derived from email domain
+          hiring_type: hiring_type,
+          utm_source: utmParams?.utm_source || null,
+          utm_medium: utmParams?.utm_medium || null,
+          utm_campaign: utmParams?.utm_campaign || null
+        }
+      });
 
-      await posthog.flush();                       // ✅ ADDED
+      await posthog.flush();
 
       return {
         statusCode: 200,
@@ -241,14 +251,14 @@ exports.handler = async (event) => {
       };
     }
 
-    // 🔁 Pipedrive Flow (no PostHog here)
+    // 🔁 Pipedrive Flow (no PostHog here) — organization keyed off the email domain
     const apiToken = process.env.PIPEDRIVE_API_TOKEN;
     console.log("Pipedrive API called");
 
-    // 1. Get or create organization
+    // 1. Get or create organization (by email domain)
     let orgId = null;
     const searchOrg = await fetch(
-      `https://talentpool.pipedrive.com/v1/organizations/search?term=${encodeURIComponent(company)}&api_token=${apiToken}`
+      `https://talentpool.pipedrive.com/v1/organizations/search?term=${encodeURIComponent(emailDomain)}&api_token=${apiToken}`
     );
     const orgRes = await searchOrg.json();
 
@@ -260,7 +270,7 @@ exports.handler = async (event) => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: company }),
+          body: JSON.stringify({ name: emailDomain }),
         }
       );
       const orgData = await createOrg.json();
@@ -293,12 +303,12 @@ exports.handler = async (event) => {
       personId = personData?.data?.id;
     }
 
-    // 3. Create lead
+    // 3. Create lead (title = email domain, hiring type appended for quick context)
     await fetch(`https://talentpool.pipedrive.com/v1/leads?api_token=${apiToken}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: company,
+        title: hiring_type ? `${emailDomain} (${hiring_type})` : emailDomain,
         person_id: personId,
         organization_id: orgId,
       }),
@@ -323,7 +333,7 @@ exports.handler = async (event) => {
       full_name,
       email,
       phone,
-      company,
+      hiring_type,
       size,
       timezone,
       whitepaper_title: "",
