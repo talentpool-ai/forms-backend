@@ -140,9 +140,9 @@ exports.handler = async (event) => {
       hiring_type,
       size,
       timezone,
-      utmParams
-   ,
-      gclid } = data;
+      utmParams,
+      gclid 
+    } = data;
 
     // Org identity now comes from the work email domain (Company field removed).
     const emailDomain = getEmailDomain(email);
@@ -341,7 +341,7 @@ exports.handler = async (event) => {
       timezone,
       whitepaper_title: "",
       utmParams,
-        gclid
+      gclid
     });
 
     // ❌ No PostHog here for non-small leads
