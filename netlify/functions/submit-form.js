@@ -78,7 +78,8 @@ async function forwardToPowerAutomate(submission) {
     whitepaper_title: submission.whitepaper_title || "",
     utm: submission.utmParams || {},
     date,
-    time
+    time,
+    gclid: submission.gclid || "",
   };
 
   const res = await fetch(FLOW_URL, {
@@ -139,7 +140,8 @@ exports.handler = async (event) => {
       hiring_type,
       size,
       timezone,
-      utmParams
+      utmParams,
+      gclid 
     } = data;
 
     // Org identity now comes from the work email domain (Company field removed).
@@ -203,7 +205,8 @@ exports.handler = async (event) => {
         size,
         timezone,
         whitepaper_title: "",
-        utmParams
+        utmParams,
+        gclid
       });
 
       // PostHog tracking ONLY for small leads (size === "lessthan5")
@@ -337,7 +340,8 @@ exports.handler = async (event) => {
       size,
       timezone,
       whitepaper_title: "",
-      utmParams
+      utmParams,
+      gclid
     });
 
     // ❌ No PostHog here for non-small leads
