@@ -35,7 +35,8 @@ async function forwardToPowerAutomate(submission) {
     whitepaper_title: submission.whitepaper_title || "",
     utm: submission.utmParams || {},
     date,
-    time
+    time,
+    gclid: submission.gclid || "",
   };
 
   const res = await fetch(FLOW_URL, {
@@ -87,7 +88,8 @@ exports.handler = async (event) => {
 
   try {
     const data = JSON.parse(event.body);
-    const { full_name, phone, email, company, size, utmParams } = data;
+    const { full_name, phone, email, company, size, utmParams,
+      gclid } = data;
 
     if (size === "lessthan5") {
       console.log("Talentpool API called");
@@ -143,7 +145,8 @@ exports.handler = async (event) => {
         company,
         size,
         whitepaper_title: "", // not used here
-        utmParams
+        utmParams,
+        gclid
       });
 
       return {
@@ -229,7 +232,8 @@ exports.handler = async (event) => {
         company,
         size,
         whitepaper_title: "", // not used here
-        utmParams
+        utmParams,
+        gclid
       });
 
     // 5. Done
