@@ -78,7 +78,8 @@ async function forwardToPowerAutomate(submission) {
     whitepaper_title: submission.whitepaper_title || "",
     utm: submission.utmParams || {},
     date,
-    time
+    time,
+    gclid: submission.gclid || "",
   };
 
   const res = await fetch(FLOW_URL, {
@@ -173,7 +174,8 @@ exports.handler = async (event) => {
       role,
       reason,
       hiring_challenge,
-      hiringChallenge
+      hiringChallenge,
+      gclid 
     } = data;
 
     // Survey update path: persist role + hiring challenge whenever they change/are submitted.
@@ -270,7 +272,8 @@ exports.handler = async (event) => {
         size,
         timezone,
         whitepaper_title: "",
-        utmParams
+        utmParams,
+        gclid
       });
 
       // PostHog tracking ONLY for small leads (size === "lessthan5")
@@ -404,7 +407,8 @@ exports.handler = async (event) => {
       size,
       timezone,
       whitepaper_title: "",
-      utmParams
+      utmParams,
+      gclid
     });
 
     // ❌ No PostHog here for non-small leads
