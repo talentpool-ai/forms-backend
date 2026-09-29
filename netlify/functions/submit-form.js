@@ -187,6 +187,35 @@ async function forwardToPowerAutomate(submission) {
   console.log("✅ Logged to Power Automate successfully");
 }
 
+// Update role + hiring challenge (pain point) on the onboard signup record when they change.
+async function updateSurveyDetailsOnTalentpool({ email, role, hiringChallenge }) {
+  if (!email || (!role && !hiringChallenge)) {
+    return;
+  }
+
+  const payload = { businessEmail: email };
+  if (role) payload.role = role;
+  if (hiringChallenge) payload.hiringChallenge = hiringChallenge;
+
+  console.log("Talentpool survey-details API called", payload);
+
+  const resp = await fetch("https://demo.thetalentpool.co.in/onboard/tenant/survey-details", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: process.env.TALENTPOOL_AUTH_HEADER,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await resp.text();
+  console.log("Talentpool survey-details response:", resp.status, text);
+
+  if (!resp.ok) {
+    throw new Error(`Survey details update failed: ${resp.status} ${text}`);
+  }
+}
+
 exports.handler = async (event) => {
   const requestOrigin = event.headers.origin;
   const corsOrigin = allowedOrigins.includes(requestOrigin)
@@ -230,8 +259,79 @@ exports.handler = async (event) => {
       size,
       timezone,
       utmParams,
+      form_type,
+      role,
+      reason,
+      hiring_challenge,
+      hiringChallenge,
       gclid
     } = data;
+
+    // Survey update path: persist role + hiring challenge whenever they change/are submitted.
+    const painPoint = hiringChallenge || hiring_challenge || reason || "";
+    const isSurveyUpdate =
+      form_type === "onboarding_survey" ||
+      Boolean(role || painPoint);
+
+    if (isSurveyUpdate && email && (role || painPoint) && !full_name && !size) {
+      try {
+        await updateSurveyDetailsOnTalentpool({
+          email,
+          role,
+          hiringChallenge: painPoint,
+        });
+      } catch (surveyErr) {
+        console.error("Failed to update survey details on Talentpool:", surveyErr);
+        return {
+          statusCode: 500,
+          headers: {
+            "Access-Control-Allow-Origin": corsOrigin,
+          },
+          body: JSON.stringify({ error: "Failed to update survey details" }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": corsOrigin,
+        },
+        body: JSON.stringify({ updated: true }),
+      };
+    }
+
+    // Survey update path: persist role + hiring challenge whenever they change/are submitted.
+    const painPoint = hiringChallenge || hiring_challenge || reason || "";
+    const isSurveyUpdate =
+      form_type === "onboarding_survey" ||
+      Boolean(role || painPoint);
+
+    if (isSurveyUpdate && email && (role || painPoint) && !full_name && !size) {
+      try {
+        await updateSurveyDetailsOnTalentpool({
+          email,
+          role,
+          hiringChallenge: painPoint,
+        });
+      } catch (surveyErr) {
+        console.error("Failed to update survey details on Talentpool:", surveyErr);
+        return {
+          statusCode: 500,
+          headers: {
+            "Access-Control-Allow-Origin": corsOrigin,
+          },
+          body: JSON.stringify({ error: "Failed to update survey details" }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": corsOrigin,
+        },
+        body: JSON.stringify({ updated: true }),
+      };
+    }
 
     // Org identity comes from the work email domain (Company field removed).
     const emailDomain = getEmailDomain(email);
