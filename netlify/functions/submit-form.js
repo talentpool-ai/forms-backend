@@ -1,5 +1,6 @@
 const fetch = require("node-fetch");
 const { PostHog } = require('posthog-node');
+const OpenAI = require('openai');
 
 // ✅ Allowed frontend domains
 const allowedOrigins = [
@@ -21,6 +22,12 @@ posthog.on('error', (error) => {
   console.error('PostHog error:', error);
 });
 
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  ...(process.env.OPENAI_URL ? { baseURL: process.env.OPENAI_URL } : {}),
+});
+
 // Helper: current date & time in IST as separate columns
 function getISTDateTime() {
   const now = new Date();
@@ -30,6 +37,87 @@ function getISTDateTime() {
     hour12: false, // HH:MM:SS
   });
   return { date, time };
+}
+
+// Helper: derive company insights (hiring_type, size, industry) from email domain via OpenAI client
+// Retries up to 3 total attempts if the response is missing or in an invalid format
+async function getCompanyInsightsFromDomain(domain) {
+  if (!process.env.OPENAI_API_KEY || !domain) {
+    console.warn("⚠️ Skipping AI insights: Missing OPENAI_API_KEY or domain");
+    return { hiring_type: "", size: null, industry: "" };
+  }
+
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+  const prompt = `Based on the company email domain "${domain}", determine:
+1. "hiring_type": Company's primary hiring focus. Strictly choose either "Tech" or "Non-Tech".
+2. "size": Estimated total number of employees in the company. Strictly return a single number (integer) representing headcount.
+3. "industry": The industry/sector the company operates in (e.g., "Information Technology", "Financial Services", "Healthcare", "E-commerce", "Manufacturing", etc.).
+
+Respond strictly with a JSON object in this format, with no markdown or other text:
+{
+  "hiring_type": "Tech",
+  "size": 50,
+  "industry": "Information Technology"
+}`;
+
+  const MAX_RETRIES = 3;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: model,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: "You are a business intelligence assistant that analyzes company domains and returns structured JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.2,
+      });
+
+      const content = response.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error("Empty response content from OpenAI");
+      }
+
+      const parsed = JSON.parse(content);
+
+      // Validate required format:
+      // hiring_type must be "Tech" or "Non-Tech"
+      // size must be a valid number
+      const hiringTypeValid = parsed.hiring_type === "Tech" || parsed.hiring_type === "Non-Tech";
+      const parsedSize = typeof parsed.size === "number" ? parsed.size : parseInt(parsed.size, 10);
+      const sizeValid = typeof parsedSize === "number" && !Number.isNaN(parsedSize);
+
+      if (!hiringTypeValid || !sizeValid) {
+        throw new Error(
+          `Invalid format received from AI (attempt ${attempt}/${MAX_RETRIES}): hiring_type=${parsed.hiring_type}, size=${parsed.size}`
+        );
+      }
+
+      return {
+        hiring_type: parsed.hiring_type,
+        size: parsedSize,
+        industry: parsed.industry || "",
+      };
+    } catch (err) {
+      console.warn(`⚠️ AI insights attempt ${attempt}/${MAX_RETRIES} failed:`, err.message || err);
+      if (attempt === MAX_RETRIES) {
+        console.error(`❌ Failed to get valid company insights after ${MAX_RETRIES} attempts.`);
+        return { hiring_type: "", size: null, industry: "" };
+      }
+      // Brief pause before next retry
+      await new Promise((res) => setTimeout(res, 500));
+    }
+  }
+
+  return { hiring_type: "", size: null, industry: "" };
 }
 
 // Helper: derive an organization name from the work email domain.
@@ -74,6 +162,8 @@ async function forwardToPowerAutomate(submission) {
     phone: submission.phone,
     hiring_type: submission.hiring_type,
     size: submission.size,
+    company_size: submission.companySize !== undefined ? submission.companySize : (submission.company_size || null),
+    industry: submission.industry || "",
     timezone: submission.timezone,
     whitepaper_title: submission.whitepaper_title || "",
     utm: submission.utmParams || {},
@@ -137,15 +227,24 @@ exports.handler = async (event) => {
       full_name,
       phone,
       email,
-      hiring_type,
       size,
       timezone,
       utmParams,
-      gclid 
+      gclid
     } = data;
 
-    // Org identity now comes from the work email domain (Company field removed).
+    // Org identity comes from the work email domain (Company field removed).
     const emailDomain = getEmailDomain(email);
+
+    // Derive company insights (hiring_type, companySize, industry) from domain via AI
+    let resolvedHiringType = null;
+    let resolvedCompanySize = null;
+    let resolvedIndustry = "";
+
+    const insights = await getCompanyInsightsFromDomain(emailDomain);
+    resolvedHiringType = insights.hiring_type || "";
+    resolvedCompanySize = insights.size;
+    resolvedIndustry = insights.industry || "";
 
     console.log("Talentpool API called");
 
@@ -201,15 +300,17 @@ exports.handler = async (event) => {
         full_name,
         email,
         phone,
-        hiring_type,
+        hiring_type: resolvedHiringType,
         size,
+        companySize: resolvedCompanySize,
+        industry: resolvedIndustry,
         timezone,
         whitepaper_title: "",
         utmParams,
         gclid
       });
 
-      // PostHog tracking ONLY for small leads (size === "lessthan5")
+      // PostHog tracking ONLY for small leads
       await posthog.identify({
         distinctId: email,
         properties: {
@@ -217,8 +318,10 @@ exports.handler = async (event) => {
           full_name: full_name,
           phone: phone,
           company: emailDomain,        // derived from email domain
-          hiring_type: hiring_type,
-          size: size,
+          industry: resolvedIndustry,
+          hiring_type: resolvedHiringType,
+          size,
+          companySize: resolvedCompanySize,
           timezone: timezone,
           lead_source: utmParams?.utm_source || 'direct',
           lead_status: 'new',
@@ -234,7 +337,8 @@ exports.handler = async (event) => {
           form_name: 'main_lead_form',
           size: size,
           company: emailDomain,        // derived from email domain
-          hiring_type: hiring_type,
+          companySize: resolvedCompanySize,
+          hiring_type: resolvedHiringType,
           utm_source: utmParams?.utm_source || null,
           utm_medium: utmParams?.utm_medium || null,
           utm_campaign: utmParams?.utm_campaign || null
@@ -311,7 +415,7 @@ exports.handler = async (event) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: hiring_type ? `${emailDomain} (${hiring_type})` : emailDomain,
+        title: resolvedHiringType ? `${emailDomain} (${resolvedHiringType})` : emailDomain,
         person_id: personId,
         organization_id: orgId,
       }),
@@ -336,8 +440,10 @@ exports.handler = async (event) => {
       full_name,
       email,
       phone,
-      hiring_type,
+      hiring_type: resolvedHiringType,
       size,
+      companySize: resolvedCompanySize,
+      industry: resolvedIndustry,
       timezone,
       whitepaper_title: "",
       utmParams,
