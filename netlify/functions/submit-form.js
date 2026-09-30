@@ -54,6 +54,13 @@ async function getCompanyInsightsFromDomain(domain) {
 2. "size": Estimated total number of employees in the company. Strictly return a single number (integer) representing headcount.
 3. "industry": The industry/sector the company operates in (e.g., "Information Technology", "Financial Services", "Healthcare", "E-commerce", "Manufacturing", etc.).
 
+If no information is found about the company/domain, or if it is ambiguous/unknown even after evaluation, default to:
+{
+  "hiring_type": "Non-Tech",
+  "size": 0,
+  "industry": "Unknown"
+}
+
 Respond strictly with a JSON object in this format, with no markdown or other text:
 {
   "hiring_type": "Tech",
