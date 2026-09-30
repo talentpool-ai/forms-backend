@@ -54,6 +54,13 @@ async function getCompanyInsightsFromDomain(domain) {
 2. "size": Estimated total number of employees in the company. Strictly return a single number (integer) representing headcount.
 3. "industry": The industry/sector the company operates in (e.g., "Information Technology", "Financial Services", "Healthcare", "E-commerce", "Manufacturing", etc.).
 
+If no information is found about the company/domain, or if it is ambiguous/unknown even after evaluation, default to:
+{
+  "hiring_type": "Non-Tech",
+  "size": 0,
+  "industry": "Unknown"
+}
+
 Respond strictly with a JSON object in this format, with no markdown or other text:
 {
   "hiring_type": "Tech",
@@ -300,38 +307,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // Survey update path: persist role + hiring challenge whenever they change/are submitted.
-    const painPoint = hiringChallenge || hiring_challenge || reason || "";
-    const isSurveyUpdate =
-      form_type === "onboarding_survey" ||
-      Boolean(role || painPoint);
-
-    if (isSurveyUpdate && email && (role || painPoint) && !full_name && !size) {
-      try {
-        await updateSurveyDetailsOnTalentpool({
-          email,
-          role,
-          hiringChallenge: painPoint,
-        });
-      } catch (surveyErr) {
-        console.error("Failed to update survey details on Talentpool:", surveyErr);
-        return {
-          statusCode: 500,
-          headers: {
-            "Access-Control-Allow-Origin": corsOrigin,
-          },
-          body: JSON.stringify({ error: "Failed to update survey details" }),
-        };
-      }
-
-      return {
-        statusCode: 200,
-        headers: {
-          "Access-Control-Allow-Origin": corsOrigin,
-        },
-        body: JSON.stringify({ updated: true }),
-      };
-    }
 
     // Org identity comes from the work email domain (Company field removed).
     const emailDomain = getEmailDomain(email);
