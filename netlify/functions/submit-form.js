@@ -85,7 +85,6 @@ Respond strictly with a JSON object in this format, with no markdown or other te
             content: prompt,
           },
         ],
-        temperature: 0.2,
       });
 
       const content = response.choices?.[0]?.message?.content;
@@ -168,6 +167,7 @@ async function forwardToPowerAutomate(submission) {
     email: submission.email,
     phone: submission.phone,
     hiring_type: submission.hiring_type,
+    company: submission.company || "",
     size: submission.size,
     company_size: submission.companySize !== undefined ? submission.companySize : (submission.company_size || null),
     industry: submission.industry || "",
@@ -188,10 +188,11 @@ async function forwardToPowerAutomate(submission) {
   if (!res.ok) {
     const text = await res.text();
     console.error(`❌ Flow failed: ${res.status} ${text}`);
-    throw new Error(`Flow failed: ${res.status}`);
+    return false;
   }
 
   console.log("✅ Logged to Power Automate successfully");
+  return true;
 }
 
 // Update role + hiring challenge (pain point) on the onboard signup record when they change.
@@ -374,6 +375,7 @@ exports.handler = async (event) => {
         full_name,
         email,
         phone,
+        company: emailDomain,
         hiring_type: resolvedHiringType,
         size,
         companySize: resolvedCompanySize,
@@ -514,6 +516,7 @@ exports.handler = async (event) => {
       full_name,
       email,
       phone,
+      company: emailDomain,
       hiring_type: resolvedHiringType,
       size,
       companySize: resolvedCompanySize,
