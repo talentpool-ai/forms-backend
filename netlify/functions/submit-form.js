@@ -169,7 +169,7 @@ async function forwardToPowerAutomate(submission) {
     hiring_type: submission.hiring_type,
     company: submission.company || "",
     size: submission.size,
-    company_size: submission.companySize !== undefined ? submission.companySize : (submission.company_size || null),
+    company_size: String(submission.companySize ?? submission.company_size ?? ""),
     industry: submission.industry || "",
     timezone: submission.timezone,
     whitepaper_title: submission.whitepaper_title || "",
